@@ -4,9 +4,15 @@ import {
   aws_ssm as ssm,
   aws_ec2 as ec2,
   aws_logs as logs,
+  aws_elasticloadbalancingv2 as loadbalancing,
+  aws_route53 as route53,
+  aws_route53_targets as route53Targets,
+  aws_certificatemanager as acm,
+  aws_secretsmanager as secrets,
 } from 'aws-cdk-lib';
 import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import { Statics } from './Statics';
 
 export interface ContainerClusterStackProps extends StackProps {
 
@@ -17,10 +23,12 @@ export class ContainerClusterStack extends Stack {
   constructor(scope: Construct, id: string, props: ContainerClusterStackProps) {
     super(scope, id, props);
 
+
     const vpc = this.setupVpc();
+    const listner = this.setupLoadbalancer(vpc);
     const cluster = this.constructEcsCluster(vpc);
-    vpc.node.addDependency(cluster);
-    this.addHelloWorldContainer(cluster);
+
+    this.addHelloWorldContainer(cluster, listner);
   }
 
   private setupVpc() {
@@ -57,15 +65,61 @@ export class ContainerClusterStack extends Stack {
       enableFargateCapacityProviders: true, // Allows usage of spot instances
     });
 
+    vpc.node.addDependency(cluster);
+
     return cluster;
   }
 
+  private setupLoadbalancer(vpc: ec2.IVpc) {
 
-  private addHelloWorldContainer(cluster: ecs.Cluster) {
+    // Import hosted zone
+    const zoneId = ssm.StringParameter.valueForStringParameter(this, Statics.ssmProjectHostedZoneId);
+    const zoneName = ssm.StringParameter.valueForStringParameter(this, Statics.ssmProjectHostedZoneName);
+    const projectHz = route53.HostedZone.fromHostedZoneAttributes(this, 'hosted-zone', {
+      hostedZoneId: zoneId,
+      zoneName: zoneName,
+    });
+
+    // Get a certificate
+    const albWebFormsDomainName = `alb.${zoneName}`;
+    const albCertificate = new acm.Certificate(this, 'loadbalancer-certificate', {
+      domainName: albWebFormsDomainName,
+      validation: acm.CertificateValidation.fromDns(projectHz),
+    });
+
+
+    // Construct the loadbalancer
+    const loadbalancer = new loadbalancing.ApplicationLoadBalancer(this, 'loadbalancer', {
+      vpc,
+      internetFacing: true, // Expose to internet (not internal to vpc)
+    });
+    // Security hub finding, do not accept invalid http headers
+    loadbalancer.setAttribute('routing.http.drop_invalid_header_fields.enabled', 'true');
+
+    // Setup a https listner
+    const listner = loadbalancer.addListener('https', {
+      certificates: [albCertificate],
+      protocol: loadbalancing.ApplicationProtocol.HTTPS,
+      sslPolicy: loadbalancing.SslPolicy.FORWARD_SECRECY_TLS12_RES,
+      defaultAction: loadbalancing.ListenerAction.fixedResponse(404, { messageBody: 'not found ALB' }),
+    });
+
+    new route53.ARecord(this, 'loadbalancer-a-record', {
+      zone: projectHz,
+      recordName: 'alb',
+      target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadbalancer)),
+      comment: 'webformulieren load balancer a record',
+    });
+
+    vpc.node.addDependency(loadbalancer);
+    return listner;
+  }
+
+  private addHelloWorldContainer(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener) {
 
     const logGroup = new logs.LogGroup(this, 'hello-world-logs', {
       retention: RetentionDays.ONE_DAY, // Very short lived (no need to keep demo stuff)
-    })
+    });
 
     /**
      * Setup the hello world task definition
@@ -80,12 +134,18 @@ export class ContainerClusterStack extends Stack {
     /**
      * Add a simple hello-world container to the task definition
      */
+    const dockerhub = secrets.Secret.fromSecretNameV2(this, 'dockerhub-secret', Statics.secretDockerHub);
     taskDef.addContainer('hello-world', {
-      image: ecs.ContainerImage.fromRegistry('hello-world'),
+      image: ecs.ContainerImage.fromRegistry('nginxdemos/hello', {
+        credentials: dockerhub,
+      }),
       logging: new ecs.AwsLogDriver({
         streamPrefix: 'logs',
-        logGroup
-      })
+        logGroup,
+      }),
+      portMappings: [{
+        containerPort: 80,
+      }],
     });
 
     /**
@@ -104,6 +164,30 @@ export class ContainerClusterStack extends Stack {
       ],
     });
     service.node.addDependency(cluster);
+
+
+    listner.addTargets('hello-world-target', {
+      port: 80,
+      protocol: loadbalancing.ApplicationProtocol.HTTP,
+      targets: [service],
+      conditions: [
+        //loadbalancing.ListenerCondition.pathPatterns([props.containerListenPath]),
+        //loadbalancing.ListenerCondition.httpHeader('Custom-HTTP-Header', [statics.cloudfrontToAlbHeaderValue]),
+      ],
+      //priority: 10,
+      //default healthcheck for all containers
+      // healthCheck: {
+      //   enabled: true,
+      //   path: props.healthCheckSettings.path,
+      //   healthyHttpCodes: '200',
+      //   healthyThresholdCount: 2,
+      //   unhealthyThresholdCount: 6,
+      //   timeout: Duration.seconds(10),
+      //   interval: Duration.seconds(15),
+      //   protocol: elasticloadbalancingv2.Protocol.HTTP,
+      // },
+      //deregistrationDelay: Duration.minutes(1), //TODO check of dit niet te kort is ivm opstarttijd nieuwe container en lopende sessies.
+    });
 
   }
 
