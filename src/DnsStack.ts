@@ -1,10 +1,11 @@
 import {
   Stack,
   aws_s3 as s3,
+  StackProps,
 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
-export interface DnsStackProps {
+export interface DnsStackProps extends StackProps {
 
 }
 

@@ -1,13 +1,14 @@
 import {
-  Stack,
+  Stack, Fn, Aws, StackProps,
   aws_ecs as ecs,
   aws_ssm as ssm,
   aws_ec2 as ec2,
-  Fn, Aws,
+  aws_logs as logs,
 } from 'aws-cdk-lib';
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
-export interface ContainerClusterStackProps {
+export interface ContainerClusterStackProps extends StackProps {
 
 }
 
@@ -18,6 +19,7 @@ export class ContainerClusterStack extends Stack {
 
     const vpc = this.setupVpc();
     const cluster = this.constructEcsCluster(vpc);
+    vpc.node.addDependency(cluster);
     this.addHelloWorldContainer(cluster);
   }
 
@@ -61,6 +63,10 @@ export class ContainerClusterStack extends Stack {
 
   private addHelloWorldContainer(cluster: ecs.Cluster) {
 
+    const logGroup = new logs.LogGroup(this, 'hello-world-logs', {
+      retention: RetentionDays.ONE_DAY, // Very short lived (no need to keep demo stuff)
+    })
+
     /**
      * Setup the hello world task definition
      * Use minimal cpu and memory
@@ -75,13 +81,17 @@ export class ContainerClusterStack extends Stack {
      * Add a simple hello-world container to the task definition
      */
     taskDef.addContainer('hello-world', {
-      image: ecs.ContainerImage.fromRegistry('hallo-world'),
+      image: ecs.ContainerImage.fromRegistry('hello-world'),
+      logging: new ecs.AwsLogDriver({
+        streamPrefix: 'logs',
+        logGroup
+      })
     });
 
     /**
      * Define the service in the cluster
      */
-    new ecs.FargateService(this, 'hello-world-service', {
+    const service = new ecs.FargateService(this, 'hello-world-service', {
       cluster,
       serviceName: 'hello-world-service',
       taskDefinition: taskDef,
@@ -93,6 +103,7 @@ export class ContainerClusterStack extends Stack {
         },
       ],
     });
+    service.node.addDependency(cluster);
 
   }
 
