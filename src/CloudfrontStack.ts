@@ -1,18 +1,16 @@
-import { 
-  Stack, 
+import {
+  Stack,
   StackProps,
-} from "aws-cdk-lib";
-import { Construct } from "constructs";
-
+} from 'aws-cdk-lib';
+import { Construct } from 'constructs';
 
 
 export class CloudfrontStack extends Stack {
 
-  constructor(scope: Construct, id: string, props?: StackProps){
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
 
-    
   }
 
 }

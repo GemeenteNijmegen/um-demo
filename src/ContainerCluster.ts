@@ -3,15 +3,14 @@ import {
   aws_ecs as ecs,
   aws_ssm as ssm,
   aws_ec2 as ec2,
-  aws_logs as logs,
   aws_elasticloadbalancingv2 as loadbalancing,
   aws_route53 as route53,
   aws_route53_targets as route53Targets,
   aws_certificatemanager as acm,
   aws_secretsmanager as secrets,
 } from 'aws-cdk-lib';
-import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import { EcsFargateService } from './constructs/EcsFargateService';
 import { Statics } from './Statics';
 
 export interface ContainerClusterStackProps extends StackProps {
@@ -28,7 +27,7 @@ export class ContainerClusterStack extends Stack {
     const listner = this.setupLoadbalancer(vpc);
     const cluster = this.constructEcsCluster(vpc);
 
-    this.addHelloWorldContainer(cluster, listner);
+    this.addHelloWorldService(cluster, listner);
   }
 
   private setupVpc() {
@@ -115,80 +114,20 @@ export class ContainerClusterStack extends Stack {
     return listner;
   }
 
-  private addHelloWorldContainer(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener) {
 
-    const logGroup = new logs.LogGroup(this, 'hello-world-logs', {
-      retention: RetentionDays.ONE_DAY, // Very short lived (no need to keep demo stuff)
-    });
-
-    /**
-     * Setup the hello world task definition
-     * Use minimal cpu and memory
-     */
-    const taskDef = new ecs.TaskDefinition(this, 'hello-world-task', {
-      compatibility: ecs.Compatibility.FARGATE,
-      cpu: '256',
-      memoryMiB: '512',
-    });
-
-    /**
-     * Add a simple hello-world container to the task definition
-     */
+  private addHelloWorldService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener) {
     const dockerhub = secrets.Secret.fromSecretNameV2(this, 'dockerhub-secret', Statics.secretDockerHub);
-    taskDef.addContainer('hello-world', {
-      image: ecs.ContainerImage.fromRegistry('nginxdemos/hello', {
-        credentials: dockerhub,
-      }),
-      logging: new ecs.AwsLogDriver({
-        streamPrefix: 'logs',
-        logGroup,
-      }),
-      portMappings: [{
-        containerPort: 80,
-      }],
+    new EcsFargateService(this, 'service-1', {
+      serviceName: 'test',
+      containerImage: 'nginxdemos/hello',
+      containerPort: 80,
+      ecsCluster: cluster,
+      listner: listner,
+      serviceListnerPath: '/*',
+      desiredtaskcount: 1,
+      dockerhubSecret: dockerhub,
     });
-
-    /**
-     * Define the service in the cluster
-     */
-    const service = new ecs.FargateService(this, 'hello-world-service', {
-      cluster,
-      serviceName: 'hello-world-service',
-      taskDefinition: taskDef,
-      desiredCount: 1,
-      capacityProviderStrategies: [
-        {
-          capacityProvider: 'FARGATE_SPOT', // USE spot instances
-          weight: 1,
-        },
-      ],
-    });
-    service.node.addDependency(cluster);
-
-
-    listner.addTargets('hello-world-target', {
-      port: 80,
-      protocol: loadbalancing.ApplicationProtocol.HTTP,
-      targets: [service],
-      conditions: [
-        //loadbalancing.ListenerCondition.pathPatterns([props.containerListenPath]),
-        //loadbalancing.ListenerCondition.httpHeader('Custom-HTTP-Header', [statics.cloudfrontToAlbHeaderValue]),
-      ],
-      //priority: 10,
-      //default healthcheck for all containers
-      // healthCheck: {
-      //   enabled: true,
-      //   path: props.healthCheckSettings.path,
-      //   healthyHttpCodes: '200',
-      //   healthyThresholdCount: 2,
-      //   unhealthyThresholdCount: 6,
-      //   timeout: Duration.seconds(10),
-      //   interval: Duration.seconds(15),
-      //   protocol: elasticloadbalancingv2.Protocol.HTTP,
-      // },
-      //deregistrationDelay: Duration.minutes(1), //TODO check of dit niet te kort is ivm opstarttijd nieuwe container en lopende sessies.
-    });
-
   }
+
 
 }
