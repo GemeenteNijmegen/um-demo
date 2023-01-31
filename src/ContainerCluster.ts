@@ -72,19 +72,19 @@ export class ContainerClusterStack extends Stack {
 
   private setupLoadbalancer(vpc: ec2.IVpc) {
 
-    // Import hosted zone
-    const zoneId = ssm.StringParameter.valueForStringParameter(this, Statics.ssmProjectHostedZoneId);
-    const zoneName = ssm.StringParameter.valueForStringParameter(this, Statics.ssmProjectHostedZoneName);
-    const projectHz = route53.HostedZone.fromHostedZoneAttributes(this, 'hosted-zone', {
-      hostedZoneId: zoneId,
-      zoneName: zoneName,
+    // Import account hosted zone
+    const accountRootZoneId = ssm.StringParameter.valueForStringParameter(this, Statics.accountRootHostedZoneId);
+    const accountRootZoneName = ssm.StringParameter.valueForStringParameter(this, Statics.accountRootHostedZoneName);
+    const accountRootZone = route53.HostedZone.fromHostedZoneAttributes(this, 'account-root-zone', {
+      hostedZoneId: accountRootZoneId,
+      zoneName: accountRootZoneName,
     });
 
     // Get a certificate
-    const albWebFormsDomainName = `alb.${zoneName}`;
+    const albWebFormsDomainName = `alb.${accountRootZoneName}`;
     const albCertificate = new acm.Certificate(this, 'loadbalancer-certificate', {
       domainName: albWebFormsDomainName,
-      validation: acm.CertificateValidation.fromDns(projectHz),
+      validation: acm.CertificateValidation.fromDns(accountRootZone),
     });
 
 
@@ -105,7 +105,7 @@ export class ContainerClusterStack extends Stack {
     });
 
     new route53.ARecord(this, 'loadbalancer-a-record', {
-      zone: projectHz,
+      zone: accountRootZone,
       recordName: 'alb',
       target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(loadbalancer)),
       comment: 'webformulieren load balancer a record',

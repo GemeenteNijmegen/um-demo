@@ -5,7 +5,6 @@ import { Statics } from './Statics';
 
 export class ParameterStack extends Stack {
 
-
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
