@@ -5,6 +5,7 @@ export class Statics {
   static readonly accountRootHostedZoneName: string = '/gemeente-nijmegen/account/hostedzone/name';
 
 
+  static readonly ssmParamsPath: string = '/cdk/um-demo/ssm/';
   static readonly ssmCertificateArn: string = '/cdk/um-demo/ssm/certificate-arn';
   static readonly ssmCloudfrontDistributionId: string = '/cdk/um-demo/ssm/cloudfront/dist-id';
 
