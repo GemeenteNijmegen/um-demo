@@ -23,4 +23,4 @@ Zo kan het verkeer alleen via cloudfront naar de loadbalancer en niet direct.
 ## Nuttig
 - [Uitwisselings Mechanisme (UM) gitlab](https://gitlab.com/vng-realisatie/um-pilot)
 - [Er is een tag gemaakt](https://github.com/GemeenteNijmegen/um-demo/releases/tag/hello-world-container) met een hallo-world demo in de begin fase van dit project. De code in de staat bij de tag bied een simpel voorbeeld van het draaien van een container op een ECS cluster en exposen van de service via een loadbalancer.
-- [Er is nog een tag aangemaakt]() waarin een nginx hello-world container draait in combinatie met een cloudfront distributie. 
+- [Er is nog een tag aangemaakt](https://github.com/GemeenteNijmegen/um-demo/releases/tag/hello-world-cloudfront) waarin een nginx hello-world container draait in combinatie met een cloudfront distributie. 
