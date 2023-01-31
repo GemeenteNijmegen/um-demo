@@ -51,8 +51,22 @@ export interface EcsFargateServiceProps {
    */
   serviceListnerPath: string;
 
+  /**
+   * Indicator if sport instances should be used for
+   * running the tasks on fargate
+   */
+  useSpotInstances?: boolean;
+
 }
 
+
+/**
+ * The ecs fargate service construct:
+ * - defines a service with a single task
+ * - the task consists of a single container
+ * - creates a log group for the service
+ * - exposes a single container port to the loadbalancer over http
+ */
 export class EcsFargateService extends Construct {
 
   readonly logGroupArn: string;
@@ -60,69 +74,34 @@ export class EcsFargateService extends Construct {
   constructor(scope: Construct, id: string, props: EcsFargateServiceProps) {
     super(scope, id);
 
-    /**
-     * Setup a basic log group for this service's logs
-     */
-    const logGroup = new logs.LogGroup(this, `${props.serviceName}-logs`, {
-      retention: logs.RetentionDays.ONE_DAY, // Very short lived (no need to keep demo stuff)
-    });
+    // Logging
+    const logGroup = this.logGroup(props);
     this.logGroupArn = logGroup.logGroupArn;
 
-    /**
-     * Setup the task definition
-    */
-    // TODO Uses minimal cpu and memory
-    const taskDef = new ecs.TaskDefinition(this, `${props.serviceName}-task`, {
-      compatibility: ecs.Compatibility.FARGATE,
-      cpu: '256',
-      memoryMiB: '512',
-    });
+    // Task, service and expose to loadbalancer
+    const task = this.setupTaskDefinition(logGroup, props);
+    const service = this.setupFargateService(task, props);
+    this.setupLoadbalancerTarget(service, props);
 
-    /**
-     * Add a container to the task definition
-     */
-    //const dockerhub = secrets.Secret.fromSecretNameV2(this, 'dockerhub-secret', Statics.secretDockerHub);
-    taskDef.addContainer( `${props.serviceName}-container`, {
-      image: ecs.ContainerImage.fromRegistry(props.containerImage, {
-        credentials: props.dockerhubSecret,
-      }),
-      logging: new ecs.AwsLogDriver({
-        streamPrefix: 'logs',
-        logGroup,
-      }),
-      portMappings: [{
-        containerPort: props.containerPort,
-      }],
-    });
-
-    /**
-     * Define the service in the cluster
-     */
-    const service = new ecs.FargateService(this, `${props.serviceName}-service`, {
-      cluster: props.ecsCluster,
-      serviceName: `${props.serviceName}-service`,
-      taskDefinition: taskDef,
-      desiredCount: props.desiredtaskcount,
-      capacityProviderStrategies: [
-        {
-          capacityProvider: 'FARGATE_SPOT', // USE spot instances
-          weight: 1,
-        },
-      ],
-    });
-    service.node.addDependency(props.ecsCluster);
+  }
 
 
+  /**
+   * Exposes the service to the loadbalancer listner on a given path and port
+   * @param service
+   * @param props
+   */
+  private setupLoadbalancerTarget(service: ecs.FargateService, props: EcsFargateServiceProps) {
     props.listner.addTargets(`${props.serviceName}-target`, {
       port: props.containerPort,
       protocol: loadbalancing.ApplicationProtocol.HTTP,
       targets: [service],
       conditions: [
         loadbalancing.ListenerCondition.pathPatterns([props.serviceListnerPath]),
-        //loadbalancing.ListenerCondition.httpHeader('Custom-HTTP-Header', [statics.cloudfrontToAlbHeaderValue]),
+        // TODO loadbalancing.ListenerCondition.httpHeader('Custom-HTTP-Header', [statics.cloudfrontToAlbHeaderValue]),
       ],
       priority: 10,
-      //default healthcheck for all containers
+      // TODO healthcheck for all containers
       // healthCheck: {
       //   enabled: true,
       //   path: props.healthCheckSettings.path,
@@ -135,7 +114,65 @@ export class EcsFargateService extends Construct {
       // },
       //deregistrationDelay: Duration.minutes(1),
     });
+  }
 
+
+  /**
+   * Setup a basic log group for this service's logs
+   */
+  private logGroup(props: EcsFargateServiceProps) {
+    const logGroup = new logs.LogGroup(this, `${props.serviceName}-logs`, {
+      retention: logs.RetentionDays.ONE_DAY, // TODO Very short lived (no need to keep demo stuff)
+    });
+    return logGroup;
+  }
+
+  /**
+   * Create a task definition with a single container for
+   * within the fargate service
+   * @param props
+   */
+  private setupTaskDefinition(logGroup: logs.ILogGroup, props: EcsFargateServiceProps) {
+
+    const taskDef = new ecs.TaskDefinition(this, `${props.serviceName}-task`, {
+      compatibility: ecs.Compatibility.FARGATE,
+      cpu: '256', // TODO Uses minimal cpu and memory
+      memoryMiB: '512',
+    });
+
+    taskDef.addContainer(`${props.serviceName}-container`, {
+      image: ecs.ContainerImage.fromRegistry(props.containerImage, {
+        credentials: props.dockerhubSecret,
+      }),
+      logging: new ecs.AwsLogDriver({
+        streamPrefix: 'logs',
+        logGroup: logGroup,
+      }),
+      portMappings: [{
+        containerPort: props.containerPort,
+      }],
+    });
+    return taskDef;
+  }
+
+  /**
+   * Define the service in the cluster
+   */
+  private setupFargateService(task: ecs.TaskDefinition, props: EcsFargateServiceProps) {
+    const service = new ecs.FargateService(this, `${props.serviceName}-service`, {
+      cluster: props.ecsCluster,
+      serviceName: `${props.serviceName}-service`,
+      taskDefinition: task,
+      desiredCount: props.desiredtaskcount,
+      capacityProviderStrategies: [
+        {
+          capacityProvider: props.useSpotInstances ? 'FARGATE_SPOT' : 'FARGATE',
+          weight: 1,
+        },
+      ],
+    });
+    service.node.addDependency(props.ecsCluster);
+    return service;
   }
 
 }

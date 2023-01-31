@@ -126,6 +126,7 @@ export class ContainerClusterStack extends Stack {
       serviceListnerPath: '/*',
       desiredtaskcount: 1,
       dockerhubSecret: dockerhub,
+      useSpotInstances: true,
     });
   }
 
