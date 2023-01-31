@@ -5,6 +5,7 @@ import {
   aws_elasticloadbalancingv2 as loadbalancing,
 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { Statics } from '../Statics';
 
 export interface EcsFargateServiceProps {
   /**
@@ -57,6 +58,13 @@ export interface EcsFargateServiceProps {
    */
   useSpotInstances?: boolean;
 
+  /**
+   * Set a token that must be send using the
+   * X-Cloudfront-Access-Token header from cloudfront to allow the
+   * request to pass trough the loadbalancer.
+   */
+  cloudfrontOnlyAccessToken?: string;
+
 }
 
 
@@ -92,14 +100,19 @@ export class EcsFargateService extends Construct {
    * @param props
    */
   private setupLoadbalancerTarget(service: ecs.FargateService, props: EcsFargateServiceProps) {
+
+    const conditions = [
+      loadbalancing.ListenerCondition.pathPatterns([props.serviceListnerPath]),
+    ];
+    if (props.cloudfrontOnlyAccessToken) {
+      conditions.push(loadbalancing.ListenerCondition.httpHeader('X-Cloudfront-Access-Token', [Statics.cloudfrontAlbAccessToken]));
+    }
+
     props.listner.addTargets(`${props.serviceName}-target`, {
       port: props.containerPort,
       protocol: loadbalancing.ApplicationProtocol.HTTP,
       targets: [service],
-      conditions: [
-        loadbalancing.ListenerCondition.pathPatterns([props.serviceListnerPath]),
-        // TODO loadbalancing.ListenerCondition.httpHeader('Custom-HTTP-Header', [statics.cloudfrontToAlbHeaderValue]),
-      ],
+      conditions,
       priority: 10,
       // TODO healthcheck for all containers
       // healthCheck: {
@@ -119,6 +132,7 @@ export class EcsFargateService extends Construct {
 
   /**
    * Setup a basic log group for this service's logs
+   * @param props
    */
   private logGroup(props: EcsFargateServiceProps) {
     const logGroup = new logs.LogGroup(this, `${props.serviceName}-logs`, {
@@ -157,6 +171,8 @@ export class EcsFargateService extends Construct {
 
   /**
    * Define the service in the cluster
+   * @param task the ecs task definition
+   * @param props
    */
   private setupFargateService(task: ecs.TaskDefinition, props: EcsFargateServiceProps) {
     const service = new ecs.FargateService(this, `${props.serviceName}-service`, {

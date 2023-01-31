@@ -127,8 +127,8 @@ export class ContainerClusterStack extends Stack {
       desiredtaskcount: 1,
       dockerhubSecret: dockerhub,
       useSpotInstances: true,
+      cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
     });
   }
-
 
 }
