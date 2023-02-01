@@ -1,9 +1,12 @@
 import {
   aws_logs as logs,
   aws_ecs as ecs,
-  aws_secretsmanager as secrets,
   aws_elasticloadbalancingv2 as loadbalancing,
+  Duration,
+  aws_cloudfront_origins as origins,
+  aws_ssm as ssm,
 } from 'aws-cdk-lib';
+import { Distribution, OriginProtocolPolicy } from 'aws-cdk-lib/aws-cloudfront';
 import { Construct } from 'constructs';
 import { Statics } from '../Statics';
 
@@ -13,12 +16,6 @@ export interface EcsFargateServiceProps {
    * A service suffix is automatically added.
    */
   serviceName: string;
-
-  /**
-   * Provide a servet that contains the credentials
-   * key value pairs with username and password to a dockerhub account.
-   */
-  dockerhubSecret?: secrets.ISecret;
 
   /**
    * The ECS cluster to which to add this fargate service
@@ -38,7 +35,7 @@ export interface EcsFargateServiceProps {
   /**
    * The container image to use (e.g. on dockerhub)
    */
-  containerImage: string;
+  containerImage: ecs.ContainerImage;
 
   /**
    * Container listing port
@@ -65,6 +62,40 @@ export interface EcsFargateServiceProps {
    */
   cloudfrontOnlyAccessToken?: string;
 
+
+  /**
+   * The priorory of this service registered in the loadbalancer
+   */
+  priority: number;
+
+
+  /**
+   * Provide the task definition CPU specs
+   * 256 (.25 vCPU) - Available memory values: 512 (0.5 GB), ...
+   * 512 (.5 vCPU) - Available memory values: 1024 (1 GB), ...
+   * 1024 (1 vCPU) - Available memory values: 2048 (2 GB), ...
+   * ...
+   */
+  cpu: string;
+
+  /**
+   * Provide the task definition memory specs
+   * 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU)
+   * 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU)
+   * ...
+   */
+  memoryMiB: string;
+
+
+  /**
+   * Configure how long the loadbalancer should wait before starting
+   * the health checks
+   */
+  healthCheckGracePeriod?: Duration;
+
+
+  distribution: Distribution;
+
 }
 
 
@@ -74,6 +105,8 @@ export interface EcsFargateServiceProps {
  * - the task consists of a single container
  * - creates a log group for the service
  * - exposes a single container port to the loadbalancer over http
+ *
+ * Note this might be replacable with https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecs_patterns.ApplicationLoadBalancedFargateService.html
  */
 export class EcsFargateService extends Construct {
 
@@ -90,6 +123,18 @@ export class EcsFargateService extends Construct {
     const task = this.setupTaskDefinition(logGroup, props);
     const service = this.setupFargateService(task, props);
     this.setupLoadbalancerTarget(service, props);
+
+    // Cloudfront behaviour
+    const hostedZoneName = ssm.StringParameter.valueForStringParameter(this, Statics.accountRootHostedZoneName);
+    const albDomainName = `alb.${hostedZoneName}`;
+    props.distribution.addBehavior(props.serviceListnerPath,
+      new origins.HttpOrigin(albDomainName, {
+        //originPath: props.serviceListnerPath,
+        protocolPolicy: OriginProtocolPolicy.MATCH_VIEWER,
+        customHeaders: {
+          'X-Cloudfront-Access-Token': Statics.cloudfrontAlbAccessToken,
+        },
+      }));
 
   }
 
@@ -108,24 +153,14 @@ export class EcsFargateService extends Construct {
       conditions.push(loadbalancing.ListenerCondition.httpHeader('X-Cloudfront-Access-Token', [Statics.cloudfrontAlbAccessToken]));
     }
 
+
     props.listner.addTargets(`${props.serviceName}-target`, {
       port: props.containerPort,
       protocol: loadbalancing.ApplicationProtocol.HTTP,
       targets: [service],
       conditions,
-      priority: 10,
+      priority: props.priority,
       // TODO healthcheck for all containers
-      // healthCheck: {
-      //   enabled: true,
-      //   path: props.healthCheckSettings.path,
-      //   healthyHttpCodes: '200',
-      //   healthyThresholdCount: 2,
-      //   unhealthyThresholdCount: 6,
-      //   timeout: Duration.seconds(10),
-      //   interval: Duration.seconds(15),
-      //   protocol: elasticloadbalancingv2.Protocol.HTTP,
-      // },
-      //deregistrationDelay: Duration.minutes(1),
     });
   }
 
@@ -150,14 +185,12 @@ export class EcsFargateService extends Construct {
 
     const taskDef = new ecs.TaskDefinition(this, `${props.serviceName}-task`, {
       compatibility: ecs.Compatibility.FARGATE,
-      cpu: '256', // TODO Uses minimal cpu and memory
-      memoryMiB: '512',
+      cpu: props.cpu,
+      memoryMiB: props.memoryMiB,
     });
 
     taskDef.addContainer(`${props.serviceName}-container`, {
-      image: ecs.ContainerImage.fromRegistry(props.containerImage, {
-        credentials: props.dockerhubSecret,
-      }),
+      image: props.containerImage,
       logging: new ecs.AwsLogDriver({
         streamPrefix: 'logs',
         logGroup: logGroup,
@@ -176,6 +209,7 @@ export class EcsFargateService extends Construct {
    */
   private setupFargateService(task: ecs.TaskDefinition, props: EcsFargateServiceProps) {
     const service = new ecs.FargateService(this, `${props.serviceName}-service`, {
+      healthCheckGracePeriod: props.healthCheckGracePeriod,
       cluster: props.ecsCluster,
       serviceName: `${props.serviceName}-service`,
       taskDefinition: task,
@@ -186,6 +220,9 @@ export class EcsFargateService extends Construct {
           weight: 1,
         },
       ],
+      cloudMapOptions: {
+        name: props.serviceName,
+      },
     });
     service.node.addDependency(props.ecsCluster);
     return service;

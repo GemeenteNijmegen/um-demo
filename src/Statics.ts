@@ -8,6 +8,7 @@ export class Statics {
   static readonly ssmParamsPath: string = '/cdk/um-demo/ssm/';
   static readonly ssmCertificateArn: string = '/cdk/um-demo/ssm/certificate-arn';
   static readonly ssmCloudfrontDistributionId: string = '/cdk/um-demo/ssm/cloudfront/dist-id';
+  static readonly ssmCloudfrontDistributionDomain: string = '/cdk/um-demo/ssm/cloudfront/dist-domainname';
 
 
   static readonly secretDockerHub: string = '/cdk/um-demo/secret/dockerhub';

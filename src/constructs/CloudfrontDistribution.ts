@@ -1,6 +1,4 @@
 import {
-  Stack,
-  StackProps,
   aws_cloudfront as cloudfront,
   aws_cloudfront_origins as origins,
   aws_ssm as ssm,
@@ -10,13 +8,15 @@ import {
 } from 'aws-cdk-lib';
 import { RemoteParameters } from 'cdk-remote-stack';
 import { Construct } from 'constructs';
-import { Statics } from './Statics';
+import { Statics } from '../Statics';
 
 
-export class CloudfrontStack extends Stack {
+export class CloudfrontDistribution extends Construct {
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
+  readonly distribution: cloudfront.Distribution;
+
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
 
     // Domain name
     const hostedZoneId = ssm.StringParameter.valueForStringParameter(this, Statics.accountRootHostedZoneId);
@@ -28,10 +28,12 @@ export class CloudfrontStack extends Stack {
     const albDomainName = `alb.${hostedZoneName}`;
 
     // Create the distribution
-    const dist = new cloudfront.Distribution(this, 'distribution', {
+    this.distribution = new cloudfront.Distribution(this, 'distribution', {
       comment: 'UM-demo cloudfront distribution',
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       defaultBehavior: {
         origin: new origins.HttpOrigin(albDomainName, {
+          originPath: '/webapp',
           protocolPolicy: cloudfront.OriginProtocolPolicy.MATCH_VIEWER,
           customHeaders: {
             'X-Cloudfront-Access-Token': Statics.cloudfrontAlbAccessToken,
@@ -47,26 +49,30 @@ export class CloudfrontStack extends Stack {
       certificate: this.getCertificate(),
     });
 
-    this.createDnsRecords(dist, hostedZone);
+    this.createDnsRecords(hostedZone);
 
     // Export the distribution for importing in other stacks
     new ssm.StringParameter(this, 'ssm-distribution-arn', {
       parameterName: Statics.ssmCloudfrontDistributionId,
-      stringValue: dist.distributionId,
+      stringValue: this.distribution.distributionId,
+    });
+    new ssm.StringParameter(this, 'ssm-distribution-domainname', {
+      parameterName: Statics.ssmCloudfrontDistributionDomain,
+      stringValue: this.distribution.domainName,
     });
 
   }
 
-  private createDnsRecords(distribution: cloudfront.Distribution, hostedZone: route53.IHostedZone) {
+  private createDnsRecords(hostedZone: route53.IHostedZone) {
 
     new route53.ARecord(this, 'dist-record-a', {
       zone: hostedZone,
-      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
     });
 
     new route53.AaaaRecord(this, 'dist-record-aaaa', {
       zone: hostedZone,
-      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
     });
 
   }

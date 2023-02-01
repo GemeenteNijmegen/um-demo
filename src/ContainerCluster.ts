@@ -7,9 +7,11 @@ import {
   aws_route53 as route53,
   aws_route53_targets as route53Targets,
   aws_certificatemanager as acm,
-  aws_secretsmanager as secrets,
+  aws_cloudfront as cloudfront,
+  Duration,
 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { CloudfrontDistribution } from './constructs/CloudfrontDistribution';
 import { EcsFargateService } from './constructs/EcsFargateService';
 import { Statics } from './Statics';
 
@@ -27,7 +29,18 @@ export class ContainerClusterStack extends Stack {
     const listner = this.setupLoadbalancer(vpc);
     const cluster = this.constructEcsCluster(vpc);
 
-    this.addHelloWorldService(cluster, listner);
+    const distribution = this.setupCloudfront();
+
+    // const dockerhub = secrets.Secret.fromSecretNameV2(this, 'dockerhub-secret', Statics.secretDockerHub);
+    // this.addHelloWorldService(cluster, listner);
+    this.addWebappService(cluster, listner, distribution);
+    this.addKeycloakService(cluster, listner, distribution);
+
+  }
+
+  private setupCloudfront() {
+    const cf = new CloudfrontDistribution(this, 'cloudfront');
+    return cf.distribution;
   }
 
   private setupVpc() {
@@ -62,6 +75,11 @@ export class ContainerClusterStack extends Stack {
       vpc,
       clusterName: 'um-demo',
       enableFargateCapacityProviders: true, // Allows usage of spot instances
+    });
+
+    cluster.addDefaultCloudMapNamespace({
+      name: 'um-demo.local',
+      vpc,
     });
 
     vpc.node.addDependency(cluster);
@@ -115,20 +133,77 @@ export class ContainerClusterStack extends Stack {
   }
 
 
-  private addHelloWorldService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener) {
-    const dockerhub = secrets.Secret.fromSecretNameV2(this, 'dockerhub-secret', Statics.secretDockerHub);
-    new EcsFargateService(this, 'service-1', {
-      serviceName: 'test',
-      containerImage: 'nginxdemos/hello',
-      containerPort: 80,
+  // private addHelloWorldService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, dockerhub: secrets.ISecret) {
+  //   new EcsFargateService(this, 'service-1', {
+  //     serviceName: 'test',
+  //     containerImage: ecs.ContainerImage.fromRegistry('nginxdemos/hello', {
+  //       credentials: dockerhub,
+  //     }),
+  //     containerPort: 80,
+  //     ecsCluster: cluster,
+  //     listner: listner,
+  //     serviceListnerPath: '/hello-world/*',
+  //     desiredtaskcount: 1,
+  //     useSpotInstances: true,
+  //     cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
+  //     cpu: '256',
+  //     memoryMiB: '512',
+  //     priority: 100,
+  //   });
+  // }
+
+
+  private addWebappService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, distribution: cloudfront.Distribution) {
+    new EcsFargateService(this, 'webapp', {
+      serviceName: 'webapp',
+      containerImage: ecs.ContainerImage.fromRegistry('vngrci/web-applicatie'),
+      containerPort: 8080,
       ecsCluster: cluster,
       listner: listner,
       serviceListnerPath: '/*',
       desiredtaskcount: 1,
-      dockerhubSecret: dockerhub,
       useSpotInstances: true,
       cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
+      priority: 10,
+      cpu: '256',
+      memoryMiB: '512',
+      distribution,
     });
   }
+
+  private addKeycloakService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, distribution: cloudfront.Distribution) {
+    new EcsFargateService(this, 'keycloak', {
+      serviceName: 'keycloak',
+      containerImage: ecs.ContainerImage.fromAsset('./src/containers/keycloak'),
+      containerPort: 8080,
+      ecsCluster: cluster,
+      listner: listner,
+      serviceListnerPath: '/keycloak/*',
+      desiredtaskcount: 1,
+      useSpotInstances: true,
+      cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
+      priority: 11,
+      cpu: '512',
+      memoryMiB: '1024',
+      healthCheckGracePeriod: Duration.minutes(4), // Allow sufficient startup time for the container,
+      distribution,
+    });
+  }
+
+  // private addGatewayService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, dockerhub: secrets.ISecret) {
+  //   new EcsFargateService(this, 'gateway', {
+  //     serviceName: 'gateway',
+  //     containerImage: ecs.ContainerImage.fromAsset('./src/containers/gateway'),
+  //     containerPort: 8080,
+  //     ecsCluster: cluster,
+  //     listner: listner,
+  //     serviceListnerPath: '/gateway/*',
+  //     desiredtaskcount: 1,
+  //     dockerhubSecret: dockerhub,
+  //     useSpotInstances: true,
+  //     cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
+  //     priority: 12,
+  //   });
+  // }
 
 }
