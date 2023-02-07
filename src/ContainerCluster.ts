@@ -31,7 +31,7 @@ export class ContainerClusterStack extends Stack {
 
     const distribution = this.setupCloudfront();
 
-    //this.addWebappService(cluster, listner, distribution);
+    this.addWebappService(cluster, listner, distribution);
     this.addKeycloakService(cluster, listner, distribution);
     //this.addGatewayService(cluster, listner, distribution);
 
@@ -131,7 +131,7 @@ export class ContainerClusterStack extends Stack {
     return listner;
   }
 
-  addWebappService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, distribution: cloudfront.Distribution) {
+  private addWebappService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, distribution: cloudfront.Distribution) {
     new EcsFargateService(this, 'webapp', {
       serviceName: 'webapp',
       containerImage: ecs.ContainerImage.fromRegistry('vngrci/web-applicatie'),
@@ -153,7 +153,7 @@ export class ContainerClusterStack extends Stack {
         CLIENT_ID: 'poc-vng-frontend',
         SCOPE: 'openid profile email offline_access',
         REQUIRE_HTTPS: 'false',
-        JWT_ISSUER_URI: 'https://um-demo.csp-nijmegen.nl/keycloak/auth/realms/poc-vng-frontend',
+        JWT_ISSUER_URI: 'https://um-demo.csp-nijmegen.nl/auth/realms/poc-vng-test-realm',
       },
     });
   }
