@@ -2,6 +2,18 @@ _format_version: "2.1"
 _transform: true
 
 services:
+
+# Health check for AWS loadbalancer
+  - name: health
+    url: https://example.com
+    routes:
+      - name: check
+        paths: 
+          - /alive
+        methods:
+        - GET
+
+# Camel adatper?
   - name: camel-adapter
     url: http://adapter:8080
     routes:
@@ -150,7 +162,6 @@ services:
           - /aanvraagvacature
         strip_path: false
 
-
 # Van 'UM GUI' naar 'UM Vacature-bron'
   - name: vacature-bron
     url: http://vacatures-bron:8080
@@ -190,3 +201,9 @@ plugins:
     credentials: true
     max_age: 3600
     preflight_continue: true
+- name: request-termination
+  service: health
+  enabled: true
+  config: 
+    status_code: 200
+    message: Alive!

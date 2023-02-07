@@ -31,10 +31,9 @@ export class ContainerClusterStack extends Stack {
 
     const distribution = this.setupCloudfront();
 
-    // const dockerhub = secrets.Secret.fromSecretNameV2(this, 'dockerhub-secret', Statics.secretDockerHub);
-    // this.addHelloWorldService(cluster, listner);
-    this.addWebappService(cluster, listner, distribution);
+    //this.addWebappService(cluster, listner, distribution);
     this.addKeycloakService(cluster, listner, distribution);
+    //this.addGatewayService(cluster, listner, distribution);
 
   }
 
@@ -132,28 +131,7 @@ export class ContainerClusterStack extends Stack {
     return listner;
   }
 
-
-  // private addHelloWorldService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, dockerhub: secrets.ISecret) {
-  //   new EcsFargateService(this, 'service-1', {
-  //     serviceName: 'test',
-  //     containerImage: ecs.ContainerImage.fromRegistry('nginxdemos/hello', {
-  //       credentials: dockerhub,
-  //     }),
-  //     containerPort: 80,
-  //     ecsCluster: cluster,
-  //     listner: listner,
-  //     serviceListnerPath: '/hello-world/*',
-  //     desiredtaskcount: 1,
-  //     useSpotInstances: true,
-  //     cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
-  //     cpu: '256',
-  //     memoryMiB: '512',
-  //     priority: 100,
-  //   });
-  // }
-
-
-  private addWebappService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, distribution: cloudfront.Distribution) {
+  addWebappService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, distribution: cloudfront.Distribution) {
     new EcsFargateService(this, 'webapp', {
       serviceName: 'webapp',
       containerImage: ecs.ContainerImage.fromRegistry('vngrci/web-applicatie'),
@@ -164,10 +142,19 @@ export class ContainerClusterStack extends Stack {
       desiredtaskcount: 1,
       useSpotInstances: true,
       cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
-      priority: 10,
+      priority: 100, // Low in prio list as others may match
       cpu: '256',
       memoryMiB: '512',
       distribution,
+      environment: {
+        GATEWAY_URL: 'https://um-demo.csp-nijmegen.nl/gateway/',
+        KIBANA_URL: 'http://kibana',
+        STRICT_DISCOVERY_DOCUMENT_VALIDATION: 'false',
+        CLIENT_ID: 'poc-vng-frontend',
+        SCOPE: 'openid profile email offline_access',
+        REQUIRE_HTTPS: 'false',
+        JWT_ISSUER_URI: 'https://um-demo.csp-nijmegen.nl/keycloak/auth/realms/poc-vng-frontend',
+      },
     });
   }
 
@@ -178,32 +165,48 @@ export class ContainerClusterStack extends Stack {
       containerPort: 8080,
       ecsCluster: cluster,
       listner: listner,
-      serviceListnerPath: '/keycloak/*',
+      serviceListnerPath: '/auth/*',
       desiredtaskcount: 1,
-      useSpotInstances: true,
+      useSpotInstances: false,
       cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
       priority: 11,
       cpu: '512',
       memoryMiB: '1024',
       healthCheckGracePeriod: Duration.minutes(4), // Allow sufficient startup time for the container,
+      healthCheckPath: '/auth/health',
       distribution,
+      environment: {
+        KC_PROXY: 'edge', // Allow http from loadbalancer to container and use X-Forwarded-* headers
+        KC_HEALTH_ENABLED: 'true', // Enable health check for loadbalancer
+        KC_HOSTNAME_STRICT: 'true', // Disables dynamically resolving the hostname from request headers
+        KC_HOSTNAME_STRICT_BACKCHANNEL: 'true', // Disables dynamically resolving the hostname from request headers (for backchanel urls)
+        KC_HTTP_RELATIVE_PATH: '/auth', // Run in container under /auth path
+        KC_HOSTNAME_URL: 'https://um-demo.csp-nijmegen.nl/auth/', //Set the base URL for frontend URLs, including scheme, host, port and path.
+        KC_HOSTNAME_ADMIN_URL: 'https://um-demo.csp-nijmegen.nl/auth/', // Set the base URL for frontend URLs, including scheme, host, port and path. (admin console)
+      },
+      runtimePlatform: {
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+        cpuArchitecture: ecs.CpuArchitecture.ARM64,
+      },
     });
   }
 
-  // private addGatewayService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, dockerhub: secrets.ISecret) {
-  //   new EcsFargateService(this, 'gateway', {
-  //     serviceName: 'gateway',
-  //     containerImage: ecs.ContainerImage.fromAsset('./src/containers/gateway'),
-  //     containerPort: 8080,
-  //     ecsCluster: cluster,
-  //     listner: listner,
-  //     serviceListnerPath: '/gateway/*',
-  //     desiredtaskcount: 1,
-  //     dockerhubSecret: dockerhub,
-  //     useSpotInstances: true,
-  //     cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
-  //     priority: 12,
-  //   });
-  // }
+  addGatewayService(cluster: ecs.Cluster, listner: loadbalancing.IApplicationListener, distribution: cloudfront.Distribution) {
+    new EcsFargateService(this, 'gateway', {
+      serviceName: 'gateway',
+      containerImage: ecs.ContainerImage.fromAsset('./src/containers/gateway'),
+      containerPort: 8080,
+      ecsCluster: cluster,
+      listner: listner,
+      serviceListnerPath: '/gateway/*',
+      desiredtaskcount: 1,
+      useSpotInstances: true,
+      cloudfrontOnlyAccessToken: Statics.cloudfrontAlbAccessToken,
+      priority: 12,
+      cpu: '256',
+      memoryMiB: '512',
+      distribution,
+    });
+  }
 
 }

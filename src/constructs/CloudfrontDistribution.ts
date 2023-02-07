@@ -33,7 +33,7 @@ export class CloudfrontDistribution extends Construct {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       defaultBehavior: {
         origin: new origins.HttpOrigin(albDomainName, {
-          originPath: '/webapp',
+          //originPath: '/webapp',
           protocolPolicy: cloudfront.OriginProtocolPolicy.MATCH_VIEWER,
           customHeaders: {
             'X-Cloudfront-Access-Token': Statics.cloudfrontAlbAccessToken,
@@ -41,7 +41,7 @@ export class CloudfrontDistribution extends Construct {
         }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-        //cachePolicy: props.cloudfrontCachePolicy,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
       },
       domainNames: [
         hostedZoneName,

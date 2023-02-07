@@ -6,7 +6,7 @@ import {
   aws_cloudfront_origins as origins,
   aws_ssm as ssm,
 } from 'aws-cdk-lib';
-import { Distribution, OriginProtocolPolicy } from 'aws-cdk-lib/aws-cloudfront';
+import { CachePolicy, Distribution, OriginProtocolPolicy, OriginRequestPolicy } from 'aws-cdk-lib/aws-cloudfront';
 import { Construct } from 'constructs';
 import { Statics } from '../Statics';
 
@@ -93,8 +93,16 @@ export interface EcsFargateServiceProps {
    */
   healthCheckGracePeriod?: Duration;
 
+  healthCheckPath?: string;
+
 
   distribution: Distribution;
+
+
+  environment?: {[key: string]: string};
+  secrets?: {[key: string]: ecs.Secret};
+
+  runtimePlatform?: ecs.RuntimePlatform;
 
 }
 
@@ -134,7 +142,10 @@ export class EcsFargateService extends Construct {
         customHeaders: {
           'X-Cloudfront-Access-Token': Statics.cloudfrontAlbAccessToken,
         },
-      }));
+      }), {
+        cachePolicy: CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
+      });
 
   }
 
@@ -161,6 +172,9 @@ export class EcsFargateService extends Construct {
       conditions,
       priority: props.priority,
       // TODO healthcheck for all containers
+      healthCheck: {
+        path: props.healthCheckPath,
+      },
     });
   }
 
@@ -185,6 +199,7 @@ export class EcsFargateService extends Construct {
 
     const taskDef = new ecs.TaskDefinition(this, `${props.serviceName}-task`, {
       compatibility: ecs.Compatibility.FARGATE,
+      runtimePlatform: props.runtimePlatform,
       cpu: props.cpu,
       memoryMiB: props.memoryMiB,
     });
@@ -198,7 +213,10 @@ export class EcsFargateService extends Construct {
       portMappings: [{
         containerPort: props.containerPort,
       }],
+      environment: props.environment,
+      secrets: props.secrets,
     });
+    console.log('Setting environment for service', props.serviceName, props.environment);
     return taskDef;
   }
 

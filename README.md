@@ -31,9 +31,15 @@ TODO uitzoeken welke te gebruiken
 
 ### Config file mounting
 De UM containers maken veel gebruik van configuratie files die aan de container gemount worden. In AWS is dit lastiger omdat we de images niet zelf in beheer (willen) hebben.
+Dit probleem geld voor veel containers omdat het gebruik van configuratie files erg is gestandaardiseerd.
 
-TODO oplossing zoeken 
+Voor zover we hebben gevonden zijn er twee opties:
+- Optie 1: ECS de image laten builden, geen idee of die dan in een ecr repo terechtkomt. ecs.ContainerImage.fromAsset(‘./image’). Zorgt er voor dat er een nieuwe container wordt gebouwd en gedeployed.
+  - De container staat niet in ECR
+  - Bij lokaal gebruik is de CDK slim genoeg om de container niet elke keer opnieuw te bouwen bij elke deployment, alleen als er wijzigingen zijn.
+- Optie 2: [een ecr-asset maken](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecr_assets-readme.html), image wordt dan ‘onderwater’ in een ecr repo opgeslagen, heb je verder geen bemoeienis mee. Imagetag krijg je als property, en die kun je dan meegeven aan een taskdefinition.
 
+Enkel optie 1 is tot nu toe in gebruik voor dit project. 
 
 ## Nuttig
 - [Uitwisselings Mechanisme (UM) gitlab](https://gitlab.com/vng-realisatie/um-pilot)
