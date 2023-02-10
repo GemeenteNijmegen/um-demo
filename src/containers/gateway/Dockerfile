@@ -1,4 +1,4 @@
-FROM vngrci/gateway:latest
+FROM --platform=amd64 kong:2.6.0-alpine
 
 USER root
 

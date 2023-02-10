@@ -6,7 +6,8 @@ import {
   aws_cloudfront_origins as origins,
   aws_ssm as ssm,
 } from 'aws-cdk-lib';
-import { CachePolicy, Distribution, OriginProtocolPolicy, OriginRequestPolicy } from 'aws-cdk-lib/aws-cloudfront';
+import { AllowedMethods, CachePolicy, Distribution, OriginProtocolPolicy, OriginRequestPolicy } from 'aws-cdk-lib/aws-cloudfront';
+import { FargateService, Ulimit } from 'aws-cdk-lib/aws-ecs';
 import { Construct } from 'constructs';
 import { Statics } from '../Statics';
 
@@ -25,7 +26,7 @@ export interface EcsFargateServiceProps {
   /**
    * The loadbalancer listner to which to connect this service
    */
-  listner: loadbalancing.IApplicationListener;
+  listner?: loadbalancing.IApplicationListener;
 
   /**
    * Desired numer of tasks that should run in this service.
@@ -47,7 +48,7 @@ export interface EcsFargateServiceProps {
    * (i.e. the path that the loadbalancer will use for this service)
    * Example: '/api/*'
    */
-  serviceListnerPath: string;
+  serviceListnerPath?: string;
 
   /**
    * Indicator if sport instances should be used for
@@ -96,7 +97,7 @@ export interface EcsFargateServiceProps {
   healthCheckPath?: string;
 
 
-  distribution: Distribution;
+  distribution?: Distribution;
 
 
   environment?: {[key: string]: string};
@@ -104,6 +105,8 @@ export interface EcsFargateServiceProps {
 
   runtimePlatform?: ecs.RuntimePlatform;
 
+  allowedMethods?: AllowedMethods;
+  ulimits?: Ulimit[];
 }
 
 
@@ -119,6 +122,7 @@ export interface EcsFargateServiceProps {
 export class EcsFargateService extends Construct {
 
   readonly logGroupArn: string;
+  readonly service: FargateService;
 
   constructor(scope: Construct, id: string, props: EcsFargateServiceProps) {
     super(scope, id);
@@ -130,23 +134,31 @@ export class EcsFargateService extends Construct {
     // Task, service and expose to loadbalancer
     const task = this.setupTaskDefinition(logGroup, props);
     const service = this.setupFargateService(task, props);
-    this.setupLoadbalancerTarget(service, props);
+    this.service = service;
+    if (props.listner) {
+      this.setupLoadbalancerTarget(service, props.listner, props);
+    }
 
     // Cloudfront behaviour
-    const hostedZoneName = ssm.StringParameter.valueForStringParameter(this, Statics.accountRootHostedZoneName);
-    const albDomainName = `alb.${hostedZoneName}`;
-    props.distribution.addBehavior(props.serviceListnerPath,
-      new origins.HttpOrigin(albDomainName, {
-        //originPath: props.serviceListnerPath,
-        protocolPolicy: OriginProtocolPolicy.MATCH_VIEWER,
-        customHeaders: {
-          'X-Cloudfront-Access-Token': Statics.cloudfrontAlbAccessToken,
-        },
-      }), {
-        cachePolicy: CachePolicy.CACHING_DISABLED,
-        originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
-      });
-
+    if (props.distribution) {
+      if (!props.serviceListnerPath) {
+        throw new Error('Could not add to cloudfront distribution no props.serviceListnerPath provided');
+      }
+      const hostedZoneName = ssm.StringParameter.valueForStringParameter(this, Statics.accountRootHostedZoneName);
+      const albDomainName = `alb.${hostedZoneName}`;
+      props.distribution.addBehavior(props.serviceListnerPath,
+        new origins.HttpOrigin(albDomainName, {
+          //originPath: props.serviceListnerPath,
+          protocolPolicy: OriginProtocolPolicy.MATCH_VIEWER,
+          customHeaders: {
+            'X-Cloudfront-Access-Token': Statics.cloudfrontAlbAccessToken,
+          },
+        }), {
+          cachePolicy: CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: OriginRequestPolicy.ALL_VIEWER,
+          allowedMethods: props.allowedMethods,
+        });
+    }
   }
 
 
@@ -155,8 +167,10 @@ export class EcsFargateService extends Construct {
    * @param service
    * @param props
    */
-  private setupLoadbalancerTarget(service: ecs.FargateService, props: EcsFargateServiceProps) {
-
+  private setupLoadbalancerTarget(service: ecs.FargateService, listner: loadbalancing.IApplicationListener, props: EcsFargateServiceProps) {
+    if (!props.serviceListnerPath) {
+      throw new Error('props.serviceListnerPath should be set when registering in the loadbalacer listner!');
+    }
     const conditions = [
       loadbalancing.ListenerCondition.pathPatterns([props.serviceListnerPath]),
     ];
@@ -164,8 +178,7 @@ export class EcsFargateService extends Construct {
       conditions.push(loadbalancing.ListenerCondition.httpHeader('X-Cloudfront-Access-Token', [Statics.cloudfrontAlbAccessToken]));
     }
 
-
-    props.listner.addTargets(`${props.serviceName}-target`, {
+    listner.addTargets(`${props.serviceName}-target`, {
       port: props.containerPort,
       protocol: loadbalancing.ApplicationProtocol.HTTP,
       targets: [service],
@@ -204,7 +217,8 @@ export class EcsFargateService extends Construct {
       memoryMiB: props.memoryMiB,
     });
 
-    taskDef.addContainer(`${props.serviceName}-container`, {
+
+    const container = taskDef.addContainer(`${props.serviceName}-container`, {
       image: props.containerImage,
       logging: new ecs.AwsLogDriver({
         streamPrefix: 'logs',
@@ -217,6 +231,11 @@ export class EcsFargateService extends Construct {
       secrets: props.secrets,
     });
     console.log('Setting environment for service', props.serviceName, props.environment);
+
+    if (props.ulimits) {
+      container.addUlimits(...props.ulimits);
+    }
+
     return taskDef;
   }
 

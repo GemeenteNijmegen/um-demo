@@ -58,7 +58,19 @@ Enkel optie 1 is tot nu toe in gebruik voor dit project.
     - Zet de url waarop keycloak beschikbaar is zodat de frontend dit kan gebruiken
   - KC_HOSTNAME_ADMIN_URL = https://um-demo.csp-nijmegen.nl/auth
     - Zet de url waarop de keycloak admin console beschikbaar is (nodig voor de frontend)
+- Om keycloak achter cloudfront en een loadbalancer te kunnen draaien is de configuratie van cloudfront en de loadbalacner belangrijk. Deze moete de juiste X-Forwarded-* headers mee sturen. Dit gebeurt vanzelf bij de loadbalancer. Voor CloudFront is het expliciet nodig de caching op disabled te zetten en de origin request policy op `AllViewer` te zetten (zodat alle headers en query strings worden doorgegeven en niet gecached).
 - TODO De realm dient nog geconfigureerd te worden.
+
+### Elasticsearch 
+- Container size (memory intensive)
+- Container architecture fix
+- Container nr of open files (ulimit)
+- Container disable virtual memeory areas (mmap)
+
+
+### Applicatie containers
+- Waarom is elasticsearch nodig 
+- Waarom moet er een portnummer in elasticsearch
 
 ## Nuttig
 - [Uitwisselings Mechanisme (UM) gitlab](https://gitlab.com/vng-realisatie/um-pilot)
