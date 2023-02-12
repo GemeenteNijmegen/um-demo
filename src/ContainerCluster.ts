@@ -242,7 +242,7 @@ export class ContainerClusterStack extends Stack {
   addAdapterService(cluster: ecs.Cluster) {
     return new EcsFargateService(this, 'camel-adapter', {
       serviceName: 'camel-adapter',
-      containerImage: ecs.ContainerImage.fromRegistry('vngrci/camel-adapter'),
+      containerImage: ecs.ContainerImage.fromAsset('./src/containers/camel-adapter'),
       containerPort: 8080,
       ecsCluster: cluster,
       desiredtaskcount: 1,
@@ -293,7 +293,7 @@ export class ContainerClusterStack extends Stack {
   addWerkzoekendeBron(cluster: ecs.Cluster) {
     return new EcsFargateService(this, 'werkzoekende-bron', {
       serviceName: 'werkzoekende-bron',
-      containerImage: ecs.ContainerImage.fromRegistry('vngrci/werkzoekendenprofielen-bron'),
+      containerImage: ecs.ContainerImage.fromAsset('./src/containers/profielen-bron'),
       containerPort: 8080,
       ecsCluster: cluster,
       desiredtaskcount: 1,
@@ -326,7 +326,7 @@ export class ContainerClusterStack extends Stack {
   addWerkzoekendeBemiddelaar(cluster: ecs.Cluster) {
     return new EcsFargateService(this, 'werkzoekende-bemiddelaar', {
       serviceName: 'werkzoekende-bemiddelaar',
-      containerImage: ecs.ContainerImage.fromRegistry('vngrci/werkzoekendenprofielen-bemiddelaar'),
+      containerImage: ecs.ContainerImage.fromAsset('./src/containers/profielen-bemiddelaar'),
       containerPort: 8080,
       ecsCluster: cluster,
       desiredtaskcount: 1,
@@ -353,8 +353,8 @@ export class ContainerClusterStack extends Stack {
         BMW_DAYS_TO_EXPIRE: '7',
         BMW_MAX_DETAIL_PROFILES: '10',
         BMW_CALLBACK_URL_BEMIDDELAAR: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagwerkzoekende/callback',
-        BMW_VUM_URL_MATCHES: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagwerkzoekende/callback', // TODO STUB use?
-        BMW_VUM_ID_URL: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagwerkzoekende/callback', // TODO stub use?
+        BMW_VUM_URL_MATCHES: 'https://profiel-stub.testdorp.nl/aanvraagwerkzoekende/callback',
+        BMW_VUM_ID_URL: 'https://profiel-stub.testdorp.nl/aanvraagwerkzoekende/callback',
         BMW_ELASTICSEARCH_URL: 'elasticsearch.um-demo.local:9200',
       },
     });
@@ -363,7 +363,7 @@ export class ContainerClusterStack extends Stack {
   addVacaturesBron(cluster: ecs.Cluster) {
     return new EcsFargateService(this, 'vacatures-bron', {
       serviceName: 'vacatures-bron',
-      containerImage: ecs.ContainerImage.fromRegistry('vngrci/vacatures-bron'),
+      containerImage: ecs.ContainerImage.fromAsset('./src/containers/vacatures-bron'),
       containerPort: 8080,
       ecsCluster: cluster,
       desiredtaskcount: 1,
@@ -396,7 +396,7 @@ export class ContainerClusterStack extends Stack {
   addVacaturesBemiddelaar(cluster: ecs.Cluster) {
     return new EcsFargateService(this, 'vacatures-bemiddelaar', {
       serviceName: 'vacatures-bemiddelaar',
-      containerImage: ecs.ContainerImage.fromRegistry('vngrci/vacatures-bemiddelaar'),
+      containerImage: ecs.ContainerImage.fromAsset('./src/containers/vacatures-bemiddelaar'),
       containerPort: 8080,
       ecsCluster: cluster,
       desiredtaskcount: 1,
@@ -423,8 +423,8 @@ export class ContainerClusterStack extends Stack {
         BMV_DAYS_TO_EXPIRE: '7',
         BMV_MAX_DETAIL_PROFILES: '10',
         BMV_CALLBACK_URL_BEMIDDELAAR: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagvacature/callback',
-        BMV_VUM_URL_MATCHES: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagvacature/callback', // TODO fix stub?
-        BMV_VUM_ID_URL: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagvacature/callback', // TODO fix stub?
+        BMV_VUM_URL_MATCHES: 'https://vacature-stub.testdorp.nl/aanvraagvacature/callback',
+        BMV_VUM_ID_URL: 'https://vacature-stub.testdorp.nl/aanvraagvacature/callback',
         BMV_ELASTICSEARCH_URL: 'elasticsearch.um-demo.local:9200',
       },
     });

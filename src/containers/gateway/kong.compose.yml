@@ -19,7 +19,7 @@ services:
     routes:
       - name: adapter
         paths:
-          - /camel
+          - /gateway/camel
         strip_path: false 
         methods:
         - POST
@@ -39,7 +39,7 @@ services:
     routes:
       - name: vum-werkzoekende-vraag
         paths:
-          - /vumprofielvraag
+          - /gateway/vumprofielvraag
         strip_path: true
         methods:
         - GET
@@ -60,7 +60,7 @@ services:
     routes:
       - name: vum-vacature-vraag
         paths:
-          - /vumvacaturevraag
+          - /gateway/vumvacaturevraag
         strip_path: true
 
 # Van 'VUM/STUB' naar 'UM Werkzoekende-bron'
@@ -74,7 +74,7 @@ services:
     routes:
       - name: vum-backend-werkzoekende-bron
         paths:
-          - /v1/werkzoekendenProfielen/matches
+          - /gateway/v1/werkzoekendenProfielen/matches
         strip_path: true
         methods:
         - GET
@@ -91,7 +91,7 @@ services:
     routes:
       - name: vum-backend-vacature-bron
         paths:
-          - /v1/vacatures/matches
+          - /gateway/v1/vacatures/matches
         strip_path: true
         methods:
         - GET

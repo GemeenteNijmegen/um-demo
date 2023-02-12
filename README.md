@@ -26,8 +26,7 @@ Er zijn [drie opties om dit voor elkaar te krijgen](https://docs.aws.amazon.com/
 - Service discovery
 - Internal (inside vpc only) loadbalancer
 - Service mesh
-
-TODO uitzoeken welke te gebruiken
+Deze opzet maakt gebruik van service discovery, op basis van DNS lookup in een private route53 subnet kunnen de verschillende services worden gevonden en geraadpleegd.
 
 ### Config file mounting
 De UM containers maken veel gebruik van configuratie files die aan de container gemount worden. In AWS is dit lastiger omdat we de images niet zelf in beheer (willen) hebben.
@@ -39,7 +38,7 @@ Voor zover we hebben gevonden zijn er twee opties:
   - Bij lokaal gebruik is de CDK slim genoeg om de container niet elke keer opnieuw te bouwen bij elke deployment, alleen als er wijzigingen zijn.
 - Optie 2: [een ecr-asset maken](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_ecr_assets-readme.html), image wordt dan ‘onderwater’ in een ecr repo opgeslagen, heb je verder geen bemoeienis mee. Imagetag krijg je als property, en die kun je dan meegeven aan een taskdefinition.
 
-Enkel optie 1 is tot nu toe in gebruik voor dit project. 
+Enkel optie 1 is tot nu toe in gebruik voor dit project. De CDK is slim genoeg om de verschillende lagen van de docker images te cachen zodat het image een keer gebouwd en uitgerold moet worden. Aanapssingen van de configuratie files zoals deze in deze repo worden gebruikt
 
 ### Keycloak
 - In de UM repo voor keycloak (https://gitlab.com/vng-realisatie/um-pilot/keycloak) wordt gebruik gemaakt van een oude keycloak container build. Deze draait niet op AWS omdat hier de ARM64 architectuur wordt gebruikt. Dot kon opgelost worden door de nieuwe versie van de image te gaan gebruiken (https://hub.docker.com/r/keycloak/keycloak). Een groot nadeel hieraan is dat de configuratie (env vars) totaal is veranderd.
