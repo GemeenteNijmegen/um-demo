@@ -255,7 +255,7 @@ export class ContainerClusterStack extends Stack {
       environment: {
         CA_SERVER_PORT: '8080',
         CA_SERVER_ADDRESS: '0.0.0.0',
-        CA_BACKEND_URL: 'http://werkzoekende-bron:8080',
+        CA_BACKEND_URL: 'http://werkzoekende-bron.um-demo.local:8080/gateway', // Zonder /
       },
     });
   }
