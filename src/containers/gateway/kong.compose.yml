@@ -13,7 +13,7 @@ services:
         methods:
         - GET
 
-# Camel adatper
+# Camel adapter
   - name: camel-adapter
     url: http://camel-adapter.um-demo.local:8080
     routes:
@@ -28,7 +28,7 @@ services:
   - name: vum-werkzoekende-vraag
     
     # De VUM centrale voorziening
-    url: https://accept.vumdevelopment.nl/api/v1
+    url: https://profiel-stub.testdorp.nl/api/v1
     # De Externe Profielen Stub
     # url: https://vum-cv.{host}.nl/api/v1
     
@@ -49,7 +49,7 @@ services:
   - name: vum-vacature-vraag
     
     #   De VUM centrale voorziening 
-    url: https://accept.vumdevelopment.nl/api/v1
+    url: https://vacature-stub.testdorp.nl/api/v1
     #   De Externe Vacature Stub
     #    url: https://vum-vac.{host}.nl/api/v1
     
@@ -65,7 +65,7 @@ services:
 
 # Van 'VUM/STUB' naar 'UM Werkzoekende-bron'
   - name: vum-werkzoekende-bron
-    url: http://werkzoekende-bron.um-demo.local:8080/werkzoekende
+    url: http://werkzoekende-bron.um-demo.local:8080
         
     tags:
      - VUM-BRW1
@@ -82,7 +82,7 @@ services:
 
 # Van 'VUM/STUB' naar 'UM Vacature-bron'
   - name: vum-vacature-bron
-    url: http://vacatures-bron.um-demo.local:8080/vacatures
+    url: http://vacatures-bron.um-demo.local:8080
     
     tags:
      - VUM-BRV1

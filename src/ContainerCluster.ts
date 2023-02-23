@@ -353,8 +353,8 @@ export class ContainerClusterStack extends Stack {
         BMW_DAYS_TO_EXPIRE: '7',
         BMW_MAX_DETAIL_PROFILES: '10',
         BMW_CALLBACK_URL_BEMIDDELAAR: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagwerkzoekende/callback',
-        BMW_VUM_URL_MATCHES: 'https://profiel-stub.testdorp.nl/aanvraagwerkzoekende/callback',
-        BMW_VUM_ID_URL: 'https://profiel-stub.testdorp.nl/aanvraagwerkzoekende/callback',
+        BMW_VUM_URL_MATCHES: 'https://profiel-stub.testdorp.nl/api/v1/werkzoekendeProfielen/matches',
+        BMW_VUM_ID_URL: 'https://profiel-stub.testdorp.nl/api/v1/werkzoekendeProfielen/',
         BMW_ELASTICSEARCH_URL: 'elasticsearch.um-demo.local:9200',
       },
     });
@@ -423,8 +423,8 @@ export class ContainerClusterStack extends Stack {
         BMV_DAYS_TO_EXPIRE: '7',
         BMV_MAX_DETAIL_PROFILES: '10',
         BMV_CALLBACK_URL_BEMIDDELAAR: 'https://um-demo.csp-nijmegen.nl/gateway/aanvraagvacature/callback',
-        BMV_VUM_URL_MATCHES: 'https://vacature-stub.testdorp.nl/aanvraagvacature/callback',
-        BMV_VUM_ID_URL: 'https://vacature-stub.testdorp.nl/aanvraagvacature/callback',
+        BMV_VUM_URL_MATCHES: 'https://vacature-stub.testdorp.nl/api/v1/vacatures/matches',
+        BMV_VUM_ID_URL: 'https://vacature-stub.testdorp.nl/api/v1/vacatures/',
         BMV_ELASTICSEARCH_URL: 'elasticsearch.um-demo.local:9200',
       },
     });
