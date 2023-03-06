@@ -118,10 +118,10 @@ Er zitten wat haken en ogen aan het draaien van elasticsearch in een container:
 
 Een intressante test zou nog zijn om de gateway container te vervangen door een AWS API gateway. Dit kan de kosten drukken door niet voor de volledige uptime van een container te betalen maar obv. pay-by-usage.
 
-## Camel adapter
+### Camel adapter
 Bevat nog geen functionaliteit. 
 Configuratie door extra parameters mee te geven aan Spring boot startup (om debug aan te zetten en app context te veranderen).
 
-## Webapp
+### Webapp
 - Geen opmerkingen over configuratie / opzet
 - Mogelijkheid om niet via Nginx te serveren maar direct vanuit S3 (scheelt een container en dus kosten)
