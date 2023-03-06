@@ -111,7 +111,7 @@ Er zitten wat haken en ogen aan het draaien van elasticsearch in een container:
 - Container nr of open files (ulimit) moet opgehoogd worden in de ECS task definition
 - Container disable virtual memeory areas (mmap), omdat deze limiet niet verhoogd kan worden moet mmap uitgeschakeld worden. `node.store.allow_mmap=false`
 
-## Gateway
+### Gateway
 [Configuratie](./src/containers/gateway/kong.compose.yml) is volledig gecustomized
 - Healcheck toegevoegd (nodig voor loadbalancer), hiervoor moest een extra plugin geinstalleerd en geconfigureerd worden.
 - Door gebruik van verschillende paden voor de containers (zie detail architectuur) moeten alle paden in de configuratie worden aangepast.
